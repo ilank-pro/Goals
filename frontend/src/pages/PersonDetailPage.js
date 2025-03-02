@@ -22,7 +22,8 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
-  DialogActions
+  DialogActions,
+  Autocomplete
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import EditIcon from '@mui/icons-material/Edit';
@@ -40,6 +41,7 @@ const PersonDetailPage = () => {
   const [person, setPerson] = useState(null);
   const [subordinates, setSubordinates] = useState([]);
   const [goals, setGoals] = useState([]);
+  const [parentGoals, setParentGoals] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   
@@ -73,6 +75,14 @@ const PersonDetailPage = () => {
       // Fetch goals
       const goalsData = await goalApi.getPersonGoals(personId);
       setGoals(goalsData);
+      
+      // Fetch parent goals if person has a parent
+      if (personData.parent_id) {
+        const parentGoalsData = await goalApi.getParentGoals(personId);
+        setParentGoals(parentGoalsData);
+      } else {
+        setParentGoals([]);
+      }
       
       setError(null);
     } catch (err) {
@@ -158,6 +168,18 @@ const PersonDetailPage = () => {
       ...prev,
       [name]: name === 'is_locked' || name === 'is_private' ? checked : value
     }));
+  };
+  
+  // Handle parent goal selection
+  const handleParentGoalSelect = (event, selectedParentGoal) => {
+    if (selectedParentGoal) {
+      setGoalFormData(prev => ({
+        ...prev,
+        name: selectedParentGoal.name,
+        definition: selectedParentGoal.definition || '',
+        target: selectedParentGoal.target
+      }));
+    }
   };
   
   const handleSaveGoal = async () => {
@@ -446,6 +468,35 @@ const PersonDetailPage = () => {
           {isNewGoal ? 'Add New Goal' : 'Edit Goal'}
         </DialogTitle>
         <DialogContent>
+          {isNewGoal && parentGoals.length > 0 && (
+            <Autocomplete
+              options={parentGoals}
+              getOptionLabel={(option) => option.name}
+              onChange={handleParentGoalSelect}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  margin="dense"
+                  label="Select from parent's goals (optional)"
+                  variant="outlined"
+                  fullWidth
+                  helperText="Select a parent goal or enter a new goal below"
+                  sx={{ mb: 2 }}
+                />
+              )}
+              renderOption={(props, option) => (
+                <li {...props}>
+                  <Box>
+                    <Typography variant="body1">{option.name}</Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Target: {option.target} | Current: {option.current_value}
+                    </Typography>
+                  </Box>
+                </li>
+              )}
+            />
+          )}
+          
           <TextField
             autoFocus
             margin="dense"

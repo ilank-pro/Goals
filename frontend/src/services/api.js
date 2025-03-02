@@ -67,6 +67,12 @@ export const goalApi = {
     return response.data;
   },
   
+  // Get goals from the parent of a specific person
+  getParentGoals: async (personId) => {
+    const response = await axios.get(`${API_URL}/goals/parent/${personId}`);
+    return response.data;
+  },
+  
   // Create a new goal
   createGoal: async (goalData) => {
     const response = await axios.post(`${API_URL}/goals/`, goalData);

@@ -24,6 +24,19 @@ def get_person_goals(person_id):
     goals = Goal.query.filter_by(person_id=person_id).all()
     return jsonify([goal.to_dict() for goal in goals]), 200
 
+@goal_bp.route('/parent/<int:person_id>', methods=['GET'])
+def get_parent_goals(person_id):
+    """Get all goals from the parent of a specific person"""
+    person = Person.query.get_or_404(person_id)  # Verify person exists
+    
+    # If person has no parent, return empty list
+    if not person.parent_id:
+        return jsonify([]), 200
+        
+    # Get parent's goals
+    parent_goals = Goal.query.filter_by(person_id=person.parent_id).all()
+    return jsonify([goal.to_dict() for goal in parent_goals]), 200
+
 @goal_bp.route('/', methods=['POST'])
 def create_goal():
     """Create a new goal for a person"""
