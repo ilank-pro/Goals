@@ -166,11 +166,13 @@ const OrgTreePage = () => {
             </Typography>
           </Box>
         ) : (
-          <Tree 
+          <Tree
             lineWidth="2px"
             lineColor="#bdbdbd"
             lineBorderRadius="10px"
             label={<Typography variant="h6">Organization</Typography>}
+            nodePadding="5px"
+            pathFunc="straight"
           >
             {renderTree(orgTree)}
           </Tree>

@@ -21,7 +21,7 @@ const OrgNode = ({ node, onNodeSelect, isSelected }) => {
       onClick={handleNodeClick}
       onDoubleClick={handleNodeDoubleClick}
       sx={{ 
-        minWidth: 200, 
+        minWidth: 200,
         m: 1,
         cursor: 'pointer',
         transition: 'all 0.3s ease',
