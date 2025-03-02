@@ -6,21 +6,23 @@ import TrackChangesIcon from '@mui/icons-material/TrackChanges';
 
 const OrgNode = ({ node, onNodeSelect, isSelected }) => {
   const navigate = useNavigate();
-  // Add local state to track selection
+  // Add local state to track selection with a more descriptive name
   const [highlighted, setHighlighted] = useState(isSelected);
   
-  // Update local state when props change
+  // Update local state when props change - this is critical for maintaining state
   useEffect(() => {
     setHighlighted(isSelected);
   }, [isSelected]);
   
   const handleNodeClick = () => {
+    // When a node is clicked, update the selection state
     onNodeSelect(node);
   };
   
   const handleNodeDoubleClick = () => {
-    // Explicitly save the current node ID to localStorage before navigating
+    // Before navigating, ensure the current node is marked as selected
     try {
+      // Save the current node ID as the selected node
       localStorage.setItem('org_tree_selected_node', node.id);
       
       // Get current expanded nodes and save them
@@ -29,6 +31,9 @@ const OrgNode = ({ node, onNodeSelect, isSelected }) => {
         // Make sure we keep the expanded nodes state
         localStorage.setItem('org_tree_expanded_nodes', expandedNodesStr);
       }
+      
+      // Set a timestamp to force a refresh when returning
+      localStorage.setItem('org_tree_last_visit', Date.now().toString());
     } catch (err) {
       console.error('Error saving node state before navigation:', err);
     }
@@ -52,7 +57,7 @@ const OrgNode = ({ node, onNodeSelect, isSelected }) => {
         m: 1,
         cursor: 'pointer',
         transition: 'all 0.3s ease',
-        border: highlighted ? '2px solid orange' : 'none',
+        border: highlighted ? '2px solid orange' : '1px solid #e0e0e0',
         boxShadow: highlighted ? 3 : 1,
         '&:hover': {
           boxShadow: 3,

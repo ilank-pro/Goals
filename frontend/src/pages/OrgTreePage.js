@@ -160,12 +160,22 @@ const OrgTreePage = () => {
       fetchOrgTree();
     };
     
+    // Add an event listener for storage changes to handle cross-tab synchronization
+    const handleStorageChange = (event) => {
+      if (event.key === SELECTED_NODE_KEY || event.key === LAST_VISIT_KEY) {
+        // When the selected node changes in another tab or the last visit timestamp is updated
+        fetchOrgTree();
+      }
+    };
+    
     document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('popstate', handlePopState);
+    window.addEventListener('storage', handleStorageChange);
     
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('popstate', handlePopState);
+      window.removeEventListener('storage', handleStorageChange);
     };
   }, []);
   
@@ -176,6 +186,34 @@ const OrgTreePage = () => {
       localStorage.setItem(SELECTED_NODE_KEY, selectedNode.id);
     }
   }, [selectedNode]);
+  
+  // Effect to handle the lastVisitTimestamp
+  useEffect(() => {
+    // When lastVisitTimestamp changes, it means we've returned from another page
+    if (lastVisitTimestamp > 0) {
+      // Check if we have a selected node ID in localStorage
+      const savedSelectedNodeId = localStorage.getItem(SELECTED_NODE_KEY);
+      if (savedSelectedNodeId) {
+        // Find the node in the tree data
+        const node = findNodeById(orgTree, savedSelectedNodeId);
+        if (node) {
+          // Force a new object reference to trigger re-render
+          setSelectedNode(JSON.parse(JSON.stringify(node)));
+          
+          // Ensure the node is visible by expanding its parent nodes
+          const parentPath = findNodePath(orgTree, savedSelectedNodeId);
+          if (parentPath.length > 0) {
+            const newExpandedNodes = new Set(expandedNodes);
+            // Add all parent nodes to expanded set (except the last one which is the node itself)
+            parentPath.slice(0, -1).forEach(parentId => {
+              newExpandedNodes.add(parentId);
+            });
+            setExpandedNodes(newExpandedNodes);
+          }
+        }
+      }
+    }
+  }, [lastVisitTimestamp, orgTree]);
   
   const handleNodeSelect = (node) => {
     // Toggle expansion when clicking on a node
@@ -256,6 +294,7 @@ const OrgTreePage = () => {
       const isNodeSelected = selectedNode && selectedNode.id === node.id;
       
       // Add a key that includes the selection state and timestamp to force re-render
+      // This is crucial for ensuring the component re-renders when selection changes
       const nodeKey = `${node.id}-${isNodeSelected ? 'selected' : 'not-selected'}-${lastVisitTimestamp}`;
       
       return (
