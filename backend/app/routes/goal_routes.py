@@ -42,14 +42,17 @@ def create_goal():
         definition=data.get('definition'),
         target=data.get('target', 0),
         current_value=data.get('current_value', 0),
-        is_locked=data.get('is_locked', False)
+        is_locked=data.get('is_locked', False),
+        is_private=data.get('is_private', False)
     )
     
     db.session.add(new_goal)
     db.session.commit()
     
     # Propagate changes upward in the hierarchy
-    Goal.propagate_goal_changes(new_goal.id)
+    # Only if the goal is not private
+    if not new_goal.is_private:
+        Goal.propagate_goal_changes(new_goal.id)
     
     return jsonify(new_goal.to_dict()), 201
 
@@ -58,6 +61,9 @@ def update_goal(goal_id):
     """Update an existing goal"""
     goal = Goal.query.get_or_404(goal_id)
     data = request.get_json()
+    
+    # Store the original private status to check if it changed
+    was_private = goal.is_private
     
     if 'name' in data:
         goal.name = data['name']
@@ -69,11 +75,15 @@ def update_goal(goal_id):
         goal.current_value = data['current_value']
     if 'is_locked' in data:
         goal.is_locked = data['is_locked']
+    if 'is_private' in data:
+        goal.is_private = data['is_private']
     
     db.session.commit()
     
-    # Propagate changes upward in the hierarchy
-    Goal.propagate_goal_changes(goal.id)
+    # Propagate changes upward in the hierarchy only if the goal is not private
+    # If the goal was changed from private to public, we need to propagate
+    if not goal.is_private or (was_private and not goal.is_private):
+        Goal.propagate_goal_changes(goal.id)
     
     return jsonify(goal.to_dict()), 200
 
@@ -85,17 +95,20 @@ def delete_goal(goal_id):
     # Store person_id before deleting for propagation
     person_id = goal.person_id
     goal_name = goal.name
+    is_private = goal.is_private
     
     db.session.delete(goal)
     db.session.commit()
     
-    # Find the person and parent to handle propagation
-    person = Person.query.get(person_id)
-    if person and person.parent_id:
-        parent = Person.query.get(person.parent_id)
-        if parent:
-            parent_goal = Goal.query.filter_by(person_id=parent.id, name=goal_name).first()
-            if parent_goal:
-                Goal.propagate_goal_changes(parent_goal.id)
+    # Only propagate if the goal was not private
+    if not is_private:
+        # Find the person and parent to handle propagation
+        person = Person.query.get(person_id)
+        if person and person.parent_id:
+            parent = Person.query.get(person.parent_id)
+            if parent:
+                parent_goal = Goal.query.filter_by(person_id=parent.id, name=goal_name).first()
+                if parent_goal:
+                    Goal.propagate_goal_changes(parent_goal.id)
     
     return jsonify({'message': 'Goal deleted successfully'}), 200 

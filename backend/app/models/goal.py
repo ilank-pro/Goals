@@ -11,17 +11,19 @@ class Goal(db.Model):
     target = db.Column(db.Float, nullable=False, default=0)
     current_value = db.Column(db.Float, nullable=False, default=0)
     is_locked = db.Column(db.Boolean, nullable=False, default=False)
+    is_private = db.Column(db.Boolean, nullable=False, default=False)
     
     # Relationship
     person = relationship("Person", back_populates="goals")
     
-    def __init__(self, person_id, name, definition=None, target=0, current_value=0, is_locked=False):
+    def __init__(self, person_id, name, definition=None, target=0, current_value=0, is_locked=False, is_private=False):
         self.person_id = person_id
         self.name = name
         self.definition = definition
         self.target = target
         self.current_value = current_value
         self.is_locked = is_locked
+        self.is_private = is_private
     
     def to_dict(self):
         return {
@@ -31,7 +33,8 @@ class Goal(db.Model):
             'definition': self.definition,
             'target': self.target,
             'current_value': self.current_value,
-            'is_locked': self.is_locked
+            'is_locked': self.is_locked,
+            'is_private': self.is_private
         }
     
     @staticmethod
@@ -44,6 +47,10 @@ class Goal(db.Model):
         
         goal = Goal.query.get(goal_id)
         if not goal:
+            return
+            
+        # Don't propagate private goals
+        if goal.is_private:
             return
             
         person = Person.query.get(goal.person_id)
@@ -62,16 +69,19 @@ class Goal(db.Model):
                 definition=goal.definition,
                 target=0,
                 current_value=0,
-                is_locked=False
+                is_locked=False,
+                is_private=False
             )
             db.session.add(parent_goal)
             
         # If the goal is not locked at the parent level, update it
         if not parent_goal.is_locked:
             # Calculate the sum of all subordinate goals with the same name
+            # Exclude private goals from subordinates
             subordinate_goals = Goal.query.join(Person).filter(
                 Person.parent_id == parent.id,
-                Goal.name == goal.name
+                Goal.name == goal.name,
+                Goal.is_private == False
             ).all()
             
             parent_goal.target = sum(g.target for g in subordinate_goals)

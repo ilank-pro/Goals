@@ -55,7 +55,8 @@ const PersonDetailPage = () => {
     definition: '',
     target: 0,
     current_value: 0,
-    is_locked: false
+    is_locked: false,
+    is_private: false
   });
   
   // Fetch person data
@@ -115,7 +116,8 @@ const PersonDetailPage = () => {
       definition: '',
       target: 0,
       current_value: 0,
-      is_locked: false
+      is_locked: false,
+      is_private: false
     });
     setOpenGoalDialog(true);
   };
@@ -128,7 +130,8 @@ const PersonDetailPage = () => {
       definition: goal.definition || '',
       target: goal.target,
       current_value: goal.current_value,
-      is_locked: goal.is_locked
+      is_locked: goal.is_locked,
+      is_private: goal.is_private
     });
     setOpenGoalDialog(true);
   };
@@ -153,7 +156,7 @@ const PersonDetailPage = () => {
     const { name, value, checked } = e.target;
     setGoalFormData(prev => ({
       ...prev,
-      [name]: name === 'is_locked' ? checked : value
+      [name]: name === 'is_locked' || name === 'is_private' ? checked : value
     }));
   };
   
@@ -234,7 +237,15 @@ const PersonDetailPage = () => {
               localStorage.setItem('org_tree_selected_node', personId);
               
               // Force a timestamp to ensure the tree view recognizes a change
+              // Using a unique timestamp ensures the tree will re-render with the correct selection
               localStorage.setItem('org_tree_last_visit', Date.now().toString());
+              
+              // Also save expanded nodes state if available
+              const expandedNodesStr = localStorage.getItem('org_tree_expanded_nodes');
+              if (expandedNodesStr) {
+                // Make sure we keep the expanded nodes state
+                localStorage.setItem('org_tree_expanded_nodes', expandedNodesStr);
+              }
             } catch (err) {
               console.error('Error saving selection state:', err);
             }
@@ -360,11 +371,16 @@ const PersonDetailPage = () => {
                           <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
                             {goal.name}
                           </Typography>
-                          {goal.is_locked ? (
-                            <LockIcon color="secondary" />
-                          ) : (
-                            <LockOpenIcon color="primary" />
-                          )}
+                          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                            {goal.is_private && (
+                              <LockIcon color="error" sx={{ mr: 1 }} />
+                            )}
+                            {goal.is_locked ? (
+                              <LockIcon color="secondary" />
+                            ) : (
+                              <LockOpenIcon color="primary" />
+                            )}
+                          </Box>
                         </Box>
                         
                         {goal.definition && (
@@ -498,6 +514,17 @@ const PersonDetailPage = () => {
               />
             }
             label="Lock this goal (prevents automatic updates from subordinates)"
+          />
+          <FormControlLabel
+            control={
+              <Switch
+                checked={goalFormData.is_private}
+                onChange={handleGoalFormChange}
+                name="is_private"
+                color="error"
+              />
+            }
+            label="Private goal (will not propagate to parent nodes)"
           />
         </DialogContent>
         <DialogActions>
