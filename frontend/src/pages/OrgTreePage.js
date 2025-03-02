@@ -6,6 +6,11 @@ import OrgNode from '../components/OrgNode';
 import PersonFormDialog from '../components/PersonFormDialog';
 import { personApi } from '../services/api';
 
+// Keys for localStorage
+const SELECTED_NODE_KEY = 'org_tree_selected_node';
+const EXPANDED_NODES_KEY = 'org_tree_expanded_nodes';
+const LAST_VISIT_KEY = 'org_tree_last_visit';
+
 const OrgTreePage = () => {
   const [orgTree, setOrgTree] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -15,6 +20,7 @@ const OrgTreePage = () => {
   const [openDialog, setOpenDialog] = useState(false);
   const [isNewPerson, setIsNewPerson] = useState(true);
   const [defaultParentId, setDefaultParentId] = useState('');
+  const [lastVisitTimestamp, setLastVisitTimestamp] = useState(0);
   
   // Fetch organization tree data
   const fetchOrgTree = async () => {
@@ -23,6 +29,17 @@ const OrgTreePage = () => {
       const data = await personApi.getOrgTree();
       setOrgTree(data);
       setError(null);
+      
+      // Check if we have a last visit timestamp
+      const storedTimestamp = localStorage.getItem(LAST_VISIT_KEY);
+      if (storedTimestamp) {
+        setLastVisitTimestamp(parseInt(storedTimestamp, 10));
+        // Clear the timestamp after using it
+        localStorage.removeItem(LAST_VISIT_KEY);
+      }
+      
+      // After loading the tree, restore the selected node and expanded nodes
+      restoreTreeState(data);
     } catch (err) {
       console.error('Error fetching org tree:', err);
       setError('Failed to load organization tree. Please try again later.');
@@ -31,9 +48,134 @@ const OrgTreePage = () => {
     }
   };
   
+  // Find a node by ID in the tree (recursive)
+  const findNodeById = (nodes, id) => {
+    if (!nodes || nodes.length === 0) return null;
+    
+    for (const node of nodes) {
+      if (node.id === id) {
+        return node;
+      }
+      
+      if (node.subordinates && node.subordinates.length > 0) {
+        const foundNode = findNodeById(node.subordinates, id);
+        if (foundNode) return foundNode;
+      }
+    }
+    
+    return null;
+  };
+  
+  // Restore the selected node and expanded nodes from localStorage
+  const restoreTreeState = (treeData) => {
+    try {
+      // Restore expanded nodes first
+      const savedExpandedNodes = localStorage.getItem(EXPANDED_NODES_KEY);
+      if (savedExpandedNodes) {
+        try {
+          const expandedNodeIds = JSON.parse(savedExpandedNodes);
+          setExpandedNodes(new Set(expandedNodeIds));
+        } catch (parseErr) {
+          console.error('Error parsing expanded nodes:', parseErr);
+        }
+      }
+      
+      // Then restore selected node
+      const savedSelectedNodeId = localStorage.getItem(SELECTED_NODE_KEY);
+      if (savedSelectedNodeId) {
+        const node = findNodeById(treeData, savedSelectedNodeId);
+        if (node) {
+          // Force a new object reference to trigger re-render
+          setSelectedNode(JSON.parse(JSON.stringify(node)));
+          
+          // Ensure the node is visible by expanding its parent nodes
+          const parentPath = findNodePath(treeData, savedSelectedNodeId);
+          if (parentPath.length > 0) {
+            const newExpandedNodes = new Set(expandedNodes);
+            // Add all parent nodes to expanded set (except the last one which is the node itself)
+            parentPath.slice(0, -1).forEach(parentId => {
+              newExpandedNodes.add(parentId);
+            });
+            setExpandedNodes(newExpandedNodes);
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Error restoring tree state:', err);
+    }
+  };
+  
+  // Find the path from root to a node by ID
+  const findNodePath = (nodes, targetId, currentPath = []) => {
+    if (!nodes || nodes.length === 0) return [];
+    
+    for (const node of nodes) {
+      // Try this node
+      const newPath = [...currentPath, node.id];
+      if (node.id === targetId) {
+        return newPath;
+      }
+      
+      // Try children
+      if (node.subordinates && node.subordinates.length > 0) {
+        const pathInChildren = findNodePath(node.subordinates, targetId, newPath);
+        if (pathInChildren.length > 0) {
+          return pathInChildren;
+        }
+      }
+    }
+    
+    return [];
+  };
+  
+  // Save the current tree state to localStorage
+  const saveTreeState = (nodeId, expandedNodeIds) => {
+    try {
+      if (nodeId) {
+        localStorage.setItem(SELECTED_NODE_KEY, nodeId);
+      }
+      
+      if (expandedNodeIds) {
+        localStorage.setItem(EXPANDED_NODES_KEY, JSON.stringify(Array.from(expandedNodeIds)));
+      }
+    } catch (err) {
+      console.error('Error saving tree state:', err);
+    }
+  };
+  
   useEffect(() => {
     fetchOrgTree();
+    
+    // Add an event listener for when the page becomes visible again
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        // When returning to the page, refresh the tree to ensure state is properly restored
+        fetchOrgTree();
+      }
+    };
+    
+    // Add an event listener for when the user navigates back to this page
+    const handlePopState = () => {
+      // When navigating back, refresh the tree to ensure state is properly restored
+      fetchOrgTree();
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('popstate', handlePopState);
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('popstate', handlePopState);
+    };
   }, []);
+  
+  // Effect to ensure selected node state is maintained
+  useEffect(() => {
+    if (selectedNode) {
+      // Ensure the selected node ID is saved to localStorage whenever it changes
+      localStorage.setItem(SELECTED_NODE_KEY, selectedNode.id);
+    }
+  }, [selectedNode]);
   
   const handleNodeSelect = (node) => {
     // Toggle expansion when clicking on a node
@@ -49,13 +191,21 @@ const OrgTreePage = () => {
         newExpandedNodes.add(nodeId);
       }
       setExpandedNodes(newExpandedNodes);
+      
+      // Re-select the node to ensure UI updates
+      setSelectedNode({...node});
+      
+      saveTreeState(nodeId, newExpandedNodes);
     } else {
       // If selecting a new node, select it and expand it if not already expanded
-      setSelectedNode(node);
+      setSelectedNode({...node});
       if (!expandedNodes.has(nodeId)) {
         const newExpandedNodes = new Set(expandedNodes);
         newExpandedNodes.add(nodeId);
         setExpandedNodes(newExpandedNodes);
+        saveTreeState(nodeId, newExpandedNodes);
+      } else {
+        saveTreeState(nodeId, expandedNodes);
       }
     }
   };
@@ -102,11 +252,15 @@ const OrgTreePage = () => {
     
     return nodes.map(node => {
       const isExpanded = expandedNodes.has(node.id);
+      // Explicitly check if the current node ID matches the selected node ID
       const isNodeSelected = selectedNode && selectedNode.id === node.id;
+      
+      // Add a key that includes the selection state and timestamp to force re-render
+      const nodeKey = `${node.id}-${isNodeSelected ? 'selected' : 'not-selected'}-${lastVisitTimestamp}`;
       
       return (
         <TreeNode 
-          key={node.id} 
+          key={nodeKey} 
           label={
             <OrgNode 
               node={node} 
@@ -124,7 +278,16 @@ const OrgTreePage = () => {
   };
   
   return (
-    <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
+    <Container 
+      maxWidth={false} 
+      disableGutters 
+      sx={{ 
+        height: 'calc(100vh - 64px)', // Adjust for app bar height if present
+        display: 'flex',
+        flexDirection: 'column',
+        p: 2
+      }}
+    >
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h4" component="h1">
           Organization Structure
@@ -154,28 +317,51 @@ const OrgTreePage = () => {
         </Paper>
       )}
       
-      <Paper className="org-tree-container" sx={{ p: 3, overflowX: 'auto' }}>
+      <Paper 
+        className="org-tree-container" 
+        sx={{ 
+          p: 3, 
+          overflowX: 'auto',
+          overflowY: 'auto',
+          flexGrow: 1, // Take up all available space
+          display: 'flex',
+          flexDirection: 'column',
+          width: '100%',
+          '& .MuiBox-root': { // Target the Tree component's container
+            minWidth: 'fit-content',
+            minHeight: 'fit-content'
+          }
+        }}
+      >
         {loading ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', p: 5 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flexGrow: 1 }}>
             <CircularProgress />
           </Box>
         ) : orgTree.length === 0 ? (
-          <Box sx={{ textAlign: 'center', p: 5 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flexGrow: 1 }}>
             <Typography variant="h6" color="text.secondary">
               No organization data available. Add a person to get started.
             </Typography>
           </Box>
         ) : (
-          <Tree
-            lineWidth="2px"
-            lineColor="#bdbdbd"
-            lineBorderRadius="10px"
-            label={<Typography variant="h6">Organization</Typography>}
-            nodePadding="5px"
-            pathFunc="straight"
-          >
-            {renderTree(orgTree)}
-          </Tree>
+          <Box sx={{ 
+            minWidth: 'fit-content', 
+            minHeight: 'fit-content',
+            display: 'inline-block',
+            margin: '0 auto', // Center horizontally
+            flexGrow: 1
+          }}>
+            <Tree
+              lineWidth="2px"
+              lineColor="#bdbdbd"
+              lineBorderRadius="10px"
+              label={<Typography variant="h6">Organization</Typography>}
+              nodePadding="5px"
+              pathFunc="straight"
+            >
+              {renderTree(orgTree)}
+            </Tree>
+          </Box>
         )}
       </Paper>
       

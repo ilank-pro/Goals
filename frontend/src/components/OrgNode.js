@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, Typography, Chip, Box } from '@mui/material';
 import PersonIcon from '@mui/icons-material/Person';
@@ -6,12 +6,34 @@ import TrackChangesIcon from '@mui/icons-material/TrackChanges';
 
 const OrgNode = ({ node, onNodeSelect, isSelected }) => {
   const navigate = useNavigate();
+  // Add local state to track selection
+  const [highlighted, setHighlighted] = useState(isSelected);
+  
+  // Update local state when props change
+  useEffect(() => {
+    setHighlighted(isSelected);
+  }, [isSelected]);
   
   const handleNodeClick = () => {
     onNodeSelect(node);
   };
   
   const handleNodeDoubleClick = () => {
+    // Explicitly save the current node ID to localStorage before navigating
+    try {
+      localStorage.setItem('org_tree_selected_node', node.id);
+      
+      // Get current expanded nodes and save them
+      const expandedNodesStr = localStorage.getItem('org_tree_expanded_nodes');
+      if (expandedNodesStr) {
+        // Make sure we keep the expanded nodes state
+        localStorage.setItem('org_tree_expanded_nodes', expandedNodesStr);
+      }
+    } catch (err) {
+      console.error('Error saving node state before navigation:', err);
+    }
+    
+    // Navigate to the person detail page
     navigate(`/person/${node.id}`);
   };
   
@@ -30,8 +52,8 @@ const OrgNode = ({ node, onNodeSelect, isSelected }) => {
         m: 1,
         cursor: 'pointer',
         transition: 'all 0.3s ease',
-        border: isSelected ? '2px solid orange' : 'none',
-        boxShadow: isSelected ? 3 : 1,
+        border: highlighted ? '2px solid orange' : 'none',
+        boxShadow: highlighted ? 3 : 1,
         '&:hover': {
           boxShadow: 3,
           transform: 'translateY(-2px)'

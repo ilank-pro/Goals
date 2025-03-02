@@ -227,7 +227,21 @@ const PersonDetailPage = () => {
       <Box sx={{ mb: 3, display: 'flex', alignItems: 'center' }}>
         <Button 
           startIcon={<ArrowBackIcon />} 
-          onClick={() => navigate('/')}
+          onClick={() => {
+            // Ensure the current person is still selected when returning to the tree
+            try {
+              // Save the current person ID as the selected node
+              localStorage.setItem('org_tree_selected_node', personId);
+              
+              // Force a timestamp to ensure the tree view recognizes a change
+              localStorage.setItem('org_tree_last_visit', Date.now().toString());
+            } catch (err) {
+              console.error('Error saving selection state:', err);
+            }
+            
+            // Navigate back to the tree view
+            navigate('/');
+          }}
           sx={{ mr: 2 }}
         >
           Back
