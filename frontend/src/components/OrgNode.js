@@ -15,6 +15,11 @@ const OrgNode = ({ node, onNodeSelect, isSelected }) => {
     navigate(`/person/${node.id}`);
   };
   
+  // Format number to show only 3 decimal points
+  const formatNumber = (num) => {
+    return typeof num === 'number' ? Number(num.toFixed(3)).toString() : num;
+  };
+  
   return (
     <Card 
       className="org-node" 
@@ -54,7 +59,7 @@ const OrgNode = ({ node, onNodeSelect, isSelected }) => {
                 <Chip 
                   key={goal.id} 
                   icon={<TrackChangesIcon />} 
-                  label={`${goal.name}: ${goal.current_value}/${goal.target}`}
+                  label={`${goal.name}: ${formatNumber(goal.current_value)}/${formatNumber(goal.target)}`}
                   size="small"
                   color={goal.is_locked ? "secondary" : "primary"}
                   variant={goal.is_locked ? "filled" : "outlined"}
