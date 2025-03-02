@@ -4,7 +4,7 @@ import { Card, CardContent, Typography, Chip, Box } from '@mui/material';
 import PersonIcon from '@mui/icons-material/Person';
 import TrackChangesIcon from '@mui/icons-material/TrackChanges';
 
-const OrgNode = ({ node, onNodeSelect }) => {
+const OrgNode = ({ node, onNodeSelect, isSelected }) => {
   const navigate = useNavigate();
   
   const handleNodeClick = () => {
@@ -25,6 +25,8 @@ const OrgNode = ({ node, onNodeSelect }) => {
         m: 1,
         cursor: 'pointer',
         transition: 'all 0.3s ease',
+        border: isSelected ? '2px solid orange' : 'none',
+        boxShadow: isSelected ? 3 : 1,
         '&:hover': {
           boxShadow: 3,
           transform: 'translateY(-2px)'

@@ -14,7 +14,7 @@ import {
 } from '@mui/material';
 import { personApi } from '../services/api';
 
-const PersonFormDialog = ({ open, onClose, onSave, person, isNew }) => {
+const PersonFormDialog = ({ open, onClose, onSave, person, isNew, defaultParentId }) => {
   const [formData, setFormData] = useState({
     name: '',
     position: '',
@@ -42,23 +42,24 @@ const PersonFormDialog = ({ open, onClose, onSave, person, isNew }) => {
     }
   }, [open]);
   
-  // Set form data when editing an existing person
+  // Set form data when editing an existing person or creating a new one with a default parent
   useEffect(() => {
     if (person && !isNew) {
+      // Editing existing person
       setFormData({
         name: person.name || '',
         position: person.position || '',
         parent_id: person.parent_id || ''
       });
     } else {
-      // Reset form for new person
+      // Creating new person
       setFormData({
         name: '',
         position: '',
-        parent_id: ''
+        parent_id: defaultParentId || ''
       });
     }
-  }, [person, isNew]);
+  }, [person, isNew, defaultParentId, open]);
   
   const handleChange = (e) => {
     const { name, value } = e.target;

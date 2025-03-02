@@ -11,8 +11,10 @@ const OrgTreePage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedNode, setSelectedNode] = useState(null);
+  const [expandedNodes, setExpandedNodes] = useState(new Set());
   const [openDialog, setOpenDialog] = useState(false);
   const [isNewPerson, setIsNewPerson] = useState(true);
+  const [defaultParentId, setDefaultParentId] = useState('');
   
   // Fetch organization tree data
   const fetchOrgTree = async () => {
@@ -34,18 +36,41 @@ const OrgTreePage = () => {
   }, []);
   
   const handleNodeSelect = (node) => {
-    setSelectedNode(node);
+    // Toggle expansion when clicking on a node
+    const nodeId = node.id;
+    
+    // If clicking the same node that's already selected
+    if (selectedNode && selectedNode.id === nodeId) {
+      // Toggle expansion state
+      const newExpandedNodes = new Set(expandedNodes);
+      if (newExpandedNodes.has(nodeId)) {
+        newExpandedNodes.delete(nodeId);
+      } else {
+        newExpandedNodes.add(nodeId);
+      }
+      setExpandedNodes(newExpandedNodes);
+    } else {
+      // If selecting a new node, select it and expand it if not already expanded
+      setSelectedNode(node);
+      if (!expandedNodes.has(nodeId)) {
+        const newExpandedNodes = new Set(expandedNodes);
+        newExpandedNodes.add(nodeId);
+        setExpandedNodes(newExpandedNodes);
+      }
+    }
   };
   
   const handleAddPerson = () => {
     setIsNewPerson(true);
-    setSelectedNode(null);
+    // Set the default parent ID to the selected node's ID if a node is selected
+    setDefaultParentId(selectedNode ? selectedNode.id : '');
     setOpenDialog(true);
   };
   
   const handleEditPerson = () => {
     if (selectedNode) {
       setIsNewPerson(false);
+      setDefaultParentId(''); // No default parent when editing
       setOpenDialog(true);
     }
   };
@@ -75,14 +100,27 @@ const OrgTreePage = () => {
   const renderTree = (nodes) => {
     if (!nodes || nodes.length === 0) return null;
     
-    return nodes.map(node => (
-      <TreeNode 
-        key={node.id} 
-        label={<OrgNode node={node} onNodeSelect={handleNodeSelect} />}
-      >
-        {node.subordinates && node.subordinates.length > 0 && renderTree(node.subordinates)}
-      </TreeNode>
-    ));
+    return nodes.map(node => {
+      const isExpanded = expandedNodes.has(node.id);
+      const isNodeSelected = selectedNode && selectedNode.id === node.id;
+      
+      return (
+        <TreeNode 
+          key={node.id} 
+          label={
+            <OrgNode 
+              node={node} 
+              onNodeSelect={handleNodeSelect} 
+              isSelected={isNodeSelected}
+            />
+          }
+        >
+          {/* Only render subordinates if the node is expanded */}
+          {isExpanded && node.subordinates && node.subordinates.length > 0 && 
+            renderTree(node.subordinates)}
+        </TreeNode>
+      );
+    });
   };
   
   return (
@@ -146,6 +184,7 @@ const OrgTreePage = () => {
         onSave={handleSavePerson}
         person={isNewPerson ? null : selectedNode}
         isNew={isNewPerson}
+        defaultParentId={defaultParentId}
       />
     </Container>
   );
