@@ -1,4 +1,4 @@
-from app import db
+from app.extensions import db
 from sqlalchemy.orm import relationship
 
 class Person(db.Model):
@@ -12,6 +12,7 @@ class Person(db.Model):
     # Relationships
     parent = relationship("Person", remote_side=[id], backref="subordinates")
     goals = relationship("Goal", back_populates="person", cascade="all, delete-orphan")
+    documents = relationship("Document", back_populates="person", cascade="all, delete-orphan")
     
     def __init__(self, name, position, parent_id=None):
         self.name = name
@@ -25,7 +26,8 @@ class Person(db.Model):
             'position': self.position,
             'parent_id': self.parent_id,
             'subordinates': [subordinate.to_dict() for subordinate in self.subordinates],
-            'goals': [goal.to_dict() for goal in self.goals]
+            'goals': [goal.to_dict() for goal in self.goals],
+            'documents': [document.to_dict() for document in self.documents]
         }
     
     @staticmethod
