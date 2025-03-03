@@ -85,8 +85,23 @@ const OrgNode = ({ node, onNodeSelect, isSelected }) => {
               {node.goals.map(goal => (
                 <Chip 
                   key={goal.id} 
-                  icon={<TrackChangesIcon />} 
-                  label={`${goal.name}: ${formatNumber(goal.current_value)}/${formatNumber(goal.target)}`}
+                  icon={<TrackChangesIcon />}
+                  label={
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                      {goal.is_private && (
+                        <Box
+                          sx={{
+                            width: '4px',
+                            height: '4px',
+                            borderRadius: '50%',
+                            backgroundColor: 'red',
+                            flexShrink: 0
+                          }}
+                        />
+                      )}
+                      {`${goal.name}: ${formatNumber(goal.current_value)}/${formatNumber(goal.target)}`}
+                    </Box>
+                  }
                   size="small"
                   color={goal.is_locked ? "secondary" : "primary"}
                   variant={goal.is_locked ? "filled" : "outlined"}
